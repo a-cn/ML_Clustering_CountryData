@@ -11,6 +11,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from typing import List, Optional
+import os
 
 from pycaret.datasets import get_data
 from pycaret.clustering import (
@@ -367,6 +368,7 @@ if st.button("Rodar Clusterização"):
     # Downloads
     st.subheader("Downloads")
     st.download_button("Baixar clusters (CSV)", labeled_final.to_csv(index=False).encode("utf-8"), "clusters.csv")
-    save_model(obj, "modelo_cluster")
-    with open("modelo_cluster.pkl", "rb") as f:
+    os.makedirs(os.path.join("results", "models"), exist_ok=True)
+    save_model(obj, os.path.join("results", "models", "modelo_cluster"))
+    with open(os.path.join("results", "models", "modelo_cluster.pkl"), "rb") as f:
         st.download_button("Baixar modelo (PKL)", f, "modelo_cluster.pkl")
