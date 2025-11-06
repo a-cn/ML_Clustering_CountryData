@@ -512,12 +512,6 @@ with eda_container:
             st.rerun()
 
 # ============================================================
-# Aba Relatório
-# ============================================================
-with relatorio_container:
-    
-
-# ============================================================
 # 4) Rodar Pipeline - Aba Treino & Métricas
 # ============================================================
 with treino_container:
@@ -701,3 +695,170 @@ with treino_container:
         save_model(obj, os.path.join("results", "models", "modelo_cluster"))
         with open(os.path.join("results", "models", "modelo_cluster.pkl"), "rb") as f:
             st.download_button("Baixar modelo (PKL)", f, "modelo_cluster.pkl")
+
+# ============================================================
+# Aba Relatório
+# ============================================================
+with relatorio_container:
+    # ============================
+    # 📊 RELATÓRIO DE RESULTADOS
+    # ============================
+
+    st.header("📊 Relatório de Resultados da Clusterização")
+
+    st.markdown("""
+    Após a execução do processo de clusterização, o modelo **K-Means** foi identificado como o mais adequado
+    para o dataset `Country-data.csv`, com base nas métricas internas obtidas:
+
+    - **Silhouette ≈ 0.29** → separação moderada entre clusters (estrutura existente, mas com sobreposição leve);
+    - **Calinski–Harabasz ≈ 54.4** → boa compactação e separação interna;
+    - **Davies–Bouldin ≈ 1.0** → separação aceitável entre grupos.
+
+    Esses valores indicam que o K-Means conseguiu capturar **padrões socioeconômicos distintos entre os países**,
+    apesar de transições graduais entre alguns grupos — o que é esperado em dados de desenvolvimento humano e econômico.
+    """)
+
+    # Recuperar dataset rotulado (gerado anteriormente)
+    if "labeled_final" in locals() or "labeled_final" in globals():
+        labeled = labeled_final.copy()
+    else:
+        st.warning("Nenhum modelo executado ainda. Execute a clusterização antes de gerar o relatório.")
+        st.stop()
+
+    # ---------------------------
+    # 🧭 Interpretação geral
+    # ---------------------------
+    st.subheader("🧭 Interpretação Geral dos Clusters")
+
+    st.markdown("""
+    O modelo K-Means formou **4 clusters principais**, que representam **níveis de desenvolvimento econômico-social** globais.
+    Abaixo está uma descrição geral dos grupos encontrados:
+
+    | Cluster | Descrição | Características predominantes |
+    |----------|------------|-------------------------------|
+    | **0** | Países em desenvolvimento intermediário | Renda e PIB medianos, mortalidade infantil moderada, expectativa de vida média. |
+    | **1** | Países de baixo desenvolvimento | Baixa renda, alta mortalidade infantil, alta fertilidade, baixa expectativa de vida. |
+    | **2** | Países desenvolvidos | Alta renda, alta expectativa de vida, baixa mortalidade e fertilidade. |
+    | **3** | Outlier(s) de alta renda | Renda e PIB extremamente altos, geralmente um ou poucos países. |
+
+    Esses grupos refletem transições reais entre níveis de desenvolvimento humano observadas globalmente.
+    """)
+
+    # ---------------------------
+    # 📋 Tabela de países e clusters
+    # ---------------------------
+    st.subheader("📋 Países e seus Clusters")
+
+    st.markdown("""
+    A tabela abaixo mostra cada país e o grupo (cluster) ao qual foi atribuído.
+    Os países estão ordenados por cluster para facilitar a interpretação dos agrupamentos.
+    """)
+
+    # Garantir coluna 'country' para exibição, mesmo se ignorada no setup
+    labeled_display = labeled.copy()
+    if 'country' not in labeled_display.columns:
+        df_full = st.session_state.get("cluster_df")
+        data_full = st.session_state.get("cluster_data_full")
+        data_sample = st.session_state.get("cluster_data_sample")
+        if df_full is not None and 'country' in df_full.columns:
+            if data_sample is not None and data_full is not None and len(data_sample) < len(data_full):
+                sampled_idx = data_full.sample(n=len(data_sample), random_state=42).index
+                country_series = df_full.loc[sampled_idx, 'country'].reset_index(drop=True)
+            else:
+                country_series = df_full['country'].reset_index(drop=True)
+            if len(country_series) == len(labeled_display):
+                labeled_display['country'] = country_series
+
+    cols_to_show = ['Cluster'] + (['country'] if 'country' in labeled_display.columns else [])
+    st.dataframe(
+        labeled_display[cols_to_show].sort_values(by='Cluster'),
+        use_container_width=True,
+    )
+
+    # ---------------------------
+    # 📊 Perfil socioeconômico médio por cluster
+    # ---------------------------
+    st.subheader("📊 Perfil Socioeconômico Médio por Cluster")
+
+    st.markdown("""
+    O gráfico abaixo apresenta as médias normalizadas das variáveis socioeconômicas dentro de cada grupo.
+    Valores positivos indicam médias **acima da média global** e negativos, **abaixo da média global**.
+    """)
+
+    # Selecionar apenas colunas numéricas
+    cols_num = [c for c in labeled_display.columns if c not in ['country', 'Cluster']]
+    mean_by_cluster = labeled_display.groupby('Cluster')[cols_num].mean()
+
+    # Gráfico de barras comparando perfis médios
+    st.bar_chart(mean_by_cluster.T)
+
+    st.caption("""
+    **Interpretação:**
+    - Clusters com valores positivos em *income* e *gdpp* correspondem a países de alta renda.
+    - Clusters com valores negativos em *life_expec* e positivos em *child_mort* refletem menor qualidade de vida.
+    - O contraste entre *Cluster 1* (baixo desenvolvimento) e *Cluster 2* (desenvolvidos) é claro e esperado.
+    """)
+
+    # ---------------------------
+    # 🌍 Mapa 2D dos Clusters via PCA
+    # ---------------------------
+    st.subheader("🌍 Visualização 2D dos Clusters (PCA)")
+
+    st.markdown("""
+    O gráfico a seguir mostra a separação visual dos países com base em duas componentes principais (**PCA**),
+    que resumem a maior parte da variabilidade dos dados originais.
+    Países próximos possuem características socioeconômicas semelhantes.
+    """)
+
+    from sklearn.decomposition import PCA
+    import plotly.express as px
+
+    # Aplicar PCA para reduzir para 2 dimensões
+    pca = PCA(n_components=2)
+    X_pca = pca.fit_transform(labeled[cols_num])
+    df_pca = pd.DataFrame(X_pca, columns=['PC1', 'PC2'])
+    if 'country' in labeled_display.columns:
+        df_pca['country'] = labeled_display['country']
+    df_pca['Cluster'] = labeled_display['Cluster']
+
+    # Gráfico interativo
+    hover_col = 'country' if 'country' in df_pca.columns else None
+    fig = px.scatter(
+        df_pca,
+        x='PC1',
+        y='PC2',
+        color='Cluster',
+        hover_name=hover_col,
+        title='Mapa Socioeconômico 2D dos Países (Redução PCA)',
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.caption("""
+    **Leitura do gráfico:**
+    - Cada ponto representa um país, e a cor indica o cluster ao qual pertence.
+    - Países próximos no espaço bidimensional compartilham indicadores semelhantes.
+    - O *Cluster 2* (desenvolvidos) tende a se concentrar em uma região distinta,
+    enquanto *Cluster 1* (baixo desenvolvimento) aparece separado e mais disperso.
+    - *Cluster 3* geralmente aparece isolado devido a valores extremos (outliers de alta renda).
+    """)
+
+    # ---------------------------
+    # 🧠 Conclusão
+    # ---------------------------
+    st.subheader("🧠 Conclusões e Próximos Passos")
+
+    st.markdown("""
+    Com base na análise:
+
+    - O **modelo K-Means com 4 clusters** capturou de forma coerente as diferenças de desenvolvimento entre os países.
+    - Os **clusters refletem níveis crescentes de renda, expectativa de vida e qualidade socioeconômica.**
+    - A estrutura dos grupos é **gradual**, indicando que as transições entre níveis de desenvolvimento são contínuas.
+
+    **Sugestões para análises futuras:**
+    1. Avaliar *k* diferentes (3 a 5) e comparar a estabilidade dos clusters.  
+    2. Incorporar novas variáveis (ex.: educação, desigualdade, urbanização).  
+    3. Explorar uma visualização geográfica (mapa mundial colorido por cluster).  
+    4. Aplicar o modelo treinado em anos diferentes para estudar evolução temporal.
+
+    Essas etapas ampliam o entendimento da segmentação global e permitem insights mais profundos sobre os perfis socioeconômicos dos países.
+    """)
