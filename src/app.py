@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 
 st.set_page_config(page_title="Clustering com PyCaret", layout="wide")
-st.title("Clusterização Automática com PyCaret (v3.x) — com Dendrograma e Heatmap")
+st.title("Clusterização Automática com PyCaret (v3.x)")
 
 # Âncora e botão flutuante "Topo" disponível em todas as abas
 st.markdown('<div id="top"></div>', unsafe_allow_html=True)
@@ -220,7 +220,7 @@ with orient_container:
 
         - Use o botão **“Gerar relatório (profiling)”** na aba *EDA* para obter um resumo completo das variáveis.  
         - Ajuste o valor de **k** e repita o treinamento para observar mudanças nos agrupamentos.  
-        - Compare diferentes algoritmos — o **K-Means** costuma gerar resultados mais estáveis para este dataset.  
+        - Compare diferentes algoritmos — o **K-Means** costuma gerar resultados mais estáveis para o dataset `Country-data.csv`.  
         - Evite ativar PCA se o foco for **interpretação das variáveis originais**.
     """)
 
@@ -366,7 +366,8 @@ else:
     if file:
         df = pd.read_csv(file)
         with treino_container:
-            st.write("Prévia dos dados carregados:")
+            st.subheader("Prévia dos dados carregados")
+            st.write("Dimensões:", df.shape)
             st.dataframe(df.head())
     else:
         st.stop()
@@ -680,10 +681,17 @@ with treino_container:
 
         # Visualizações do modelo escolhido (PyCaret)
         st.subheader("Visualizações do modelo (PyCaret)")
+        captions_map = {
+            "elbow": "Interpretação: observe o ponto de ‘cotovelo’, onde a queda do erro/distortion desacelera. Esse k tende a oferecer bom equilíbrio entre simplicidade e qualidade.",
+            "silhouette": "Interpretação: valores próximos de 1 indicam boa separação; próximos de 0 indicam sobreposição; negativos sugerem pontos mal alocados.",
+            "tsne": "Interpretação: visualização não linear da proximidade entre amostras. Grupos compactos indicam clusters coesos; misturas/overlaps indicam fronteiras difusas."
+        }
         for plot_type in ["elbow", "silhouette", "tsne"]:
             try:
                 st.markdown(f"Plot: {plot_type}")
                 plot_model(obj, plot=plot_type, display_format="streamlit")
+                if plot_type in captions_map:
+                    st.caption(captions_map[plot_type])
             except Exception as e:
                 st.info(f"{plot_type} não disponível para {escolha}: {e}")
 
@@ -692,6 +700,7 @@ with treino_container:
         if escolha == "hclust" or show_dendro_anyway:
             X_for_dendro = labeled_final.drop(columns=["Cluster"])
             make_dendrogram(X_for_dendro, sample_cap=250, method="ward")
+            st.caption("Interpretação: cada união representa mesclagem de grupos. Alturas maiores indicam junções entre grupos mais diferentes. ‘Saltos’ grandes na altura sugerem fronteiras naturais entre clusters.")
         else:
             st.info("Dendrograma é mais apropriado para hclust. Ative a opção na barra lateral para forçar exibição.")
 
@@ -700,6 +709,7 @@ with treino_container:
         top_n = int(heatmap_topn) if heatmap_topn and heatmap_topn > 0 else None
         plot_cluster_means_heatmap(labeled_final, cluster_col="Cluster",
                                    zscore=heatmap_zscore, top_n_features=top_n)
+        st.caption("Interpretação: cada célula mostra a média da variável no cluster (z‑score se ativado). Tons positivos indicam valores acima da média global; negativos, abaixo. Padrões por linha/coluna revelam quais variáveis diferenciam cada grupo.")
 
         # Comparação com rótulos verdadeiros (opcional)
         if ('label_col' in locals()) and label_col and label_col in df.columns:
@@ -792,6 +802,13 @@ with relatorio_container:
     # Mapa 2D via PCA
     # ---------------------------
     st.subheader("Visualização 2D dos Clusters (PCA)")
+
+    st.markdown("""
+    O Principal Component Analysis (PCA) é utilizado para resumir todas as variáveis em dois eixos (componentes PC1 e PC2) para visualização, sendo que, neste caso, cada ponto na imagem representa um país.  
+    - Pontos **próximos** indicam países com perfis socioeconômicos semelhantes.  
+    - Pontos **distantes** indicam perfis distintos.  
+    - As **cores** correspondem aos clusters identificados.
+    """)
 
     from sklearn.decomposition import PCA
     import plotly.express as px
@@ -889,7 +906,10 @@ with relatorio_container:
         st.markdown("### ⚠️ Cluster(s) Isolado(s) Detectado(s)")
         for c in isolated_clusters:
             isolated_country = labeled_display.loc[labeled_display['Cluster'] == c, 'country'].values[0]
-            st.info(f"**Cluster {c}** contém apenas **{isolated_country}**, indicando um possível outlier com perfil socioeconômico extremo.")
+            label = str(c)
+            if not label.lower().startswith("cluster"):
+                label = f"Cluster {label}"
+            st.info(f"**{label}** contém apenas **{isolated_country}**, indicando um possível outlier com perfil socioeconômico extremo.")
         st.caption("""
         **Interpretação:**  
         O modelo detectou país(es) significativamente diferentes dos demais.  
