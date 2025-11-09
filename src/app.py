@@ -210,7 +210,7 @@ with orient_container:
 
         - **Cluster 0:** países com alta mortalidade infantil, baixa renda e baixa expectativa de vida;  
         - **Cluster 1:** países de alta renda e boa expectativa de vida;  
-        - **Cluster 2:** economias emergentes intermediárias.  
+        - **Cluster 2:** países de desenvolvimento intermediário.  
 
         Esses insights podem ser usados para **análises comparativas**, **planejamento de políticas públicas** ou **estudos de desenvolvimento econômico**.
         
@@ -767,55 +767,26 @@ with relatorio_container:
     st.markdown("""
     O modelo K-Means formou **4 clusters principais**, representando diferentes estágios de desenvolvimento econômico e social:
 
-    | Cluster | Descrição | Características predominantes |
+    | Cluster  | Descrição  | Características predominantes |
     |----------|------------|-------------------------------|
     | **0** | Países em desenvolvimento intermediário | PIB e renda modestos, mortalidade infantil ainda alta, fertilidade elevada, expectativa de vida média. |
-    | **1** | **Países desenvolvidos** | Alta renda e PIB per capita, elevada expectativa de vida, baixa mortalidade e fertilidade, inflação controlada, forte abertura comercial. |
-    | **2** | Países em desenvolvimento baixo / emergente inicial | Renda e PIB baixos, mortalidade e fertilidade altas, expectativa de vida reduzida, inflação relativamente alta. |
+    | **1** | Países desenvolvidos                    | Alta renda e PIB per capita, elevada expectativa de vida, baixa mortalidade e fertilidade, inflação controlada, forte abertura comercial. |
+    | **2** | Países de baixo desenvolvimento         | Renda e PIB baixos, mortalidade e fertilidade altas, expectativa de vida reduzida, inflação relativamente alta. |
     | **3** | País isolado de vulnerabilidade extrema (Nigéria) | Mortalidade e fertilidade extremamente altas, renda e expectativa de vida muito baixas, inflação muito elevada. |
 
     Esses agrupamentos refletem uma **progressão socioeconômica coerente**, indo de países de **vulnerabilidade extrema (Cluster 3)**
     até **economias desenvolvidas (Cluster 1)**, com **estágios intermediários (Clusters 0 e 2)**.
     """)
 
-    # ---------------------------
-    # Tabela de países e clusters
-    # ---------------------------
-    st.subheader("Países e seus Clusters")
-
-    st.markdown("""
-    A tabela abaixo mostra cada país e o grupo (cluster) ao qual foi atribuído.
-    Os países estão ordenados por cluster para facilitar a interpretação dos agrupamentos.
-    """)
-
+    # Preparar dataset exibível
     labeled_display = labeled.copy()
     if 'country' not in labeled_display.columns:
         df_full = st.session_state.get("cluster_df")
         if df_full is not None and 'country' in df_full.columns:
             labeled_display['country'] = df_full['country']
-
-    st.dataframe(
-        labeled_display[['country', 'Cluster']].sort_values(by='Cluster'),
-        use_container_width=True,
-    )
-
-    # ---------------------------
-    # Clusters isolados
-    # ---------------------------
+    # Métricas de tamanho/outliers para uso posterior
     cluster_counts = labeled_display['Cluster'].value_counts()
     isolated_clusters = cluster_counts[cluster_counts == 1].index.tolist()
-
-    if isolated_clusters:
-        st.markdown("### ⚠️ Cluster(s) Isolado(s) Detectado(s)")
-        for c in isolated_clusters:
-            isolated_country = labeled_display.loc[labeled_display['Cluster'] == c, 'country'].values[0]
-            st.info(f"**Cluster {c}** contém apenas **{isolated_country}**, indicando um possível outlier com perfil socioeconômico extremo.")
-        st.caption("""
-        **Interpretação:**  
-        O modelo detectou país(es) significativamente diferentes dos demais.  
-        No caso atual, a **Nigéria** apresenta mortalidade infantil, fertilidade e inflação muito elevadas,
-        além de baixa renda e expectativa de vida, justificando seu isolamento.
-        """)
 
     # ---------------------------
     # Mapa 2D via PCA
@@ -846,7 +817,8 @@ with relatorio_container:
     st.caption("""
     **Leitura do gráfico:**
     - *Cluster 1* (desenvolvidos) forma um grupo compacto e distante, com indicadores homogêneos e altos níveis de renda e qualidade de vida.  
-    - *Cluster 0* e *Cluster 2* aparecem como faixas intermediárias de desenvolvimento.  
+    - *Cluster 0* aparece como faixa intermediária de desenvolvimento.  
+    - *Cluster 2* agrupa países de baixo desenvolvimento, com indicadores desfavoráveis.  
     - *Cluster 3* (Nigéria) surge isolado — reflexo de um perfil socioeconômico extremamente desfavorável.
     """)
 
@@ -860,8 +832,9 @@ with relatorio_container:
     Cores semelhantes indicam países com características socioeconômicas próximas.
     """)
 
+    # Preparar mapa de cores do PCA para reutilizar em outras seções
+    pca_color_map = {}
     try:
-        pca_color_map = {}
         for tr in getattr(fig_pca, 'data', []):
             cat_name = str(tr.name)
             tr_color = getattr(tr.marker, 'color', None)
@@ -885,6 +858,44 @@ with relatorio_container:
         st.plotly_chart(fig_map, use_container_width=True)
     except Exception as e:
         st.warning("Não foi possível gerar o mapa geográfico. Verifique se os nomes dos países estão padronizados.")
+
+    # ---------------------------
+    # Tamanho dos clusters e outliers
+    # ---------------------------
+    st.subheader("Tamanho dos Clusters e Outliers")
+    st.markdown("""
+    O gráfico (doughnut) abaixo apresenta a quantidade de países distribuídos por cluster.  
+    Cada setor representa a proporção de países em cada grupo.
+    """)
+    try:
+        counts_df = cluster_counts.sort_index().rename_axis('Cluster').reset_index(name='Quantidade')
+        counts_df['ClusterStr'] = counts_df['Cluster'].astype(str)
+        fig_counts = px.pie(
+            counts_df,
+            names='ClusterStr',
+            values='Quantidade',
+            color='ClusterStr',
+            category_orders={'ClusterStr': [str(c) for c in cluster_order]},
+            color_discrete_map=pca_color_map,
+            title='Participação de Países por Cluster',
+            hole=0.5
+        )
+        fig_counts.update_layout(legend_title_text='Cluster')
+        st.plotly_chart(fig_counts, use_container_width=True)
+    except Exception:
+        st.table(cluster_counts.sort_index())
+
+    if isolated_clusters:
+        st.markdown("### ⚠️ Cluster(s) Isolado(s) Detectado(s)")
+        for c in isolated_clusters:
+            isolated_country = labeled_display.loc[labeled_display['Cluster'] == c, 'country'].values[0]
+            st.info(f"**Cluster {c}** contém apenas **{isolated_country}**, indicando um possível outlier com perfil socioeconômico extremo.")
+        st.caption("""
+        **Interpretação:**  
+        O modelo detectou país(es) significativamente diferentes dos demais.  
+        No caso atual, a **Nigéria** apresenta mortalidade infantil, fertilidade e inflação muito elevadas,
+        além de baixa renda e expectativa de vida, justificando seu isolamento.
+        """)
 
     # ---------------------------
     # Perfil socioeconômico médio
@@ -921,9 +932,54 @@ with relatorio_container:
     **Interpretação:**
     - *Cluster 1* (**desenvolvidos**): maiores valores em **income**, **gdpp**, **health**, **life_expec**, **exports** e **imports**; menores em **child_mort**, **total_fer** e **inflation**.  
     - *Cluster 0*: indicadores médios, representando países em desenvolvimento intermediário.  
-    - *Cluster 2*: desempenho mais fraco, com renda e PIB baixos e mortalidade/fertilidade elevadas.  
+    - *Cluster 2* (**baixo desenvolvimento**): renda e PIB baixos e mortalidade/fertilidade elevadas.  
     - *Cluster 3* (**Nigéria**): perfil extremo — inflação e mortalidade muito altas, renda e expectativa de vida muito baixas.
     """)
+
+    # ---------------------------
+    # Distribuição por variável (oculta)
+    # ---------------------------
+    with st.expander("Distribuição por variável"):
+        st.markdown("""
+        Nesta seção são exibidos gráficos do tipo **boxplot** para cada variável selecionada, separados por cluster.
+        O objetivo é comparar a **distribuição** das variáveis entre os grupos.
+        
+        Como interpretar:
+        - **Linha central**: a mediana dos valores do cluster;
+        - **Caixa**: intervalo interquartil (Q1–Q3), onde se concentram 50% dos valores;
+        - **Bigodes**: variação típica (sem outliers) dos dados;
+        - **Pontos fora da caixa**: possíveis outliers.
+        
+        Selecione abaixo as variáveis para explorar suas distribuições por cluster.
+        """)
+        candidate_vars = [v for v in cols_num if v in ['income','gdpp','life_expec','child_mort','total_fer','inflation','health','imports','exports']]
+        default_vars = [v for v in ['health','gdpp','life_expec','child_mort'] if v in candidate_vars]
+        selected_vars = st.multiselect("Selecione as variáveis para visualizar:", options=candidate_vars, default=default_vars)
+        for var in selected_vars:
+            df_box = labeled_display[['Cluster', var]].copy()
+            df_box['ClusterStr'] = df_box['Cluster'].astype(str)
+            fig_box = px.box(
+                df_box, x='ClusterStr', y=var, color='ClusterStr',
+                category_orders={'ClusterStr': [str(c) for c in cluster_order]},
+                color_discrete_map=pca_color_map,
+                points='outliers',
+                title=f'Distribuição de {var} por Cluster'
+            )
+            fig_box.update_layout(xaxis_title='Cluster', legend_title_text='Cluster')
+            st.plotly_chart(fig_box, use_container_width=True)
+
+    # ---------------------------
+    # Tabela de países e clusters
+    # ---------------------------
+    st.subheader("Países e seus Clusters")
+    st.markdown("""
+    A tabela abaixo mostra cada país e o grupo (cluster) ao qual foi atribuído.
+    Os países estão ordenados por cluster para facilitar a interpretação dos agrupamentos.
+    """)
+    st.dataframe(
+        labeled_display[['country', 'Cluster']].sort_values(by='Cluster'),
+        use_container_width=True,
+    )
 
     # ---------------------------
     # Conclusões
@@ -933,7 +989,7 @@ with relatorio_container:
     st.markdown("""
     **Resumo da análise:**
     - O **modelo K-Means (k = 4)** capturou uma estrutura coerente de desenvolvimento socioeconômico global.  
-    - *Cluster 1* agrupa países **desenvolvidos**; *Clusters 0* e *2* representam estágios intermediários; *Cluster 3* (**Nigéria**) destaca-se como caso isolado e crítico.  
+    - *Cluster 1* agrupa países **desenvolvidos**; *Cluster 0* representa países em estágio **intermediário**; *Cluster 2* reúne **países de baixo desenvolvimento**; *Cluster 3* (**Nigéria**) destaca-se como caso isolado e crítico.  
     - Os resultados reforçam a coerência entre os indicadores econômicos e sociais.
 
     **Sugestões de continuidade:**
