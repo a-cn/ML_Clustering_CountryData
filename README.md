@@ -1,23 +1,26 @@
-## Projeto de Clusterização com PyCaret — Country Data (Kaggle)
+## Clusterização com PyCaret (Streamlit) — Country Data
 
-Este projeto realiza aprendizado não supervisionado (clustering) sobre o dataset Country Data do Kaggle, com foco em identificar padrões ocultos entre países. A aplicação principal é um app em Streamlit que utiliza PyCaret para automatizar o pipeline de clusterização, avaliação e visualização.
+Aplicativo Streamlit para aprendizado não supervisionado (clustering) com PyCaret 3.x, com foco em identificar 
+padrões ocultos entre países. Permite carregar dados (exemplo Iris ou CSV), configurar pré‑processamento, treinar vários algoritmos, visualizar e interpretar resultados, e gerar um relatório completo em HTML.
 
-### Objetivos
-- **Principal**: implementar algoritmos de clustering (K-Means, Hierarchical Clustering e DBSCAN) com PyCaret para descobrir padrões no dataset `Country-data.csv`.
-- **Secundário**: desenvolver habilidades práticas em análise exploratória de dados (EDA) e validação de modelos não supervisionados.
-
-### Requisitos Funcionais (implementados)
-- **Carregamento e Exploração de Dados**: suporte a datasets da biblioteca PyCaret (ex.: Iris) ou upload de CSV (neste caso, o Country-data.csv). Exibe preview e estatísticas iniciais.
-- **Pré-processamento**: seleção de features numéricas, normalização opcional e PCA opcional.
-- **Clustering**: aplicação de pelo menos 3 algoritmos (K-Means, Hierarchical Clustering e DBSCAN). O app também suporta BIRCH, OPTICS e Spectral (opcionais).
-- **Validação e Métricas**: cálculo de Silhouette Score, Calinski–Harabasz e Davies–Bouldin.
-- **Visualizações**: comparação de modelos, gráficos do PyCaret (elbow, silhouette, t-SNE), dendrograma para hierárquico, heatmap de médias por cluster.
-- **Interpretação**: sumarização textual automática das métricas por modelo e seção com análise detalhada do modelo selecionado.
-
-### Requisitos Não Funcionais
-- **Performance**: projetado para até ~10.000 linhas em < 5 minutos. Use o limitador de amostras no app para garantir responsividade em máquinas modestas.
-- **Usabilidade**: interface Streamlit clara, com descrições nos painéis laterais e outputs explicativos.
-- **Confiabilidade**: tratamento básico de erros, validação de inputs e reprodutibilidade (semente fixa `session_id=42`).
+### Destaques
+- **Abas do app**: Orientações, EDA (profiling), Treino & Métricas, Relatório.
+- **Fontes de dados**: Iris (PyCaret) ou upload de CSV (recomendado `data/raw/Country-data.csv`).
+- **Pré‑processamento**: seleção de features numéricas, ignorar colunas (ex.: `country`), normalização, PCA opcional.
+- **Modelos**: K‑Means, Hierarchical (hclust), DBSCAN, OPTICS, BIRCH, Spectral (seleção múltipla).
+- **Métricas**: Silhouette, Calinski–Harabasz, Davies–Bouldin, com interpretação automática por modelo.
+- **Visualizações**:
+  - PyCaret: elbow, silhouette, t‑SNE (quando disponíveis);
+  - Dendrograma (scipy);
+  - Heatmap de médias por cluster (z‑score opcional e top‑N variáveis);
+  - PCA 2D interativo;
+  - Mapa mundial (choropleth por país/cluster);
+  - Tamanho dos clusters em doughnut (percentual + quantidade);
+  - Detecção de cluster(es) isolado(s);
+  - Perfil socioeconômico médio por cluster (barras com valores até 3 casas decimais);
+  - Distribuição por variável (boxplots das 9 variáveis).
+- **Downloads**: clusters (CSV), modelo treinado (PKL) e, na aba Relatório, um botão único para baixar o **Relatório Completo em HTML** sobre os resultados da clusterização do dataset `Country-data.csv`.
+- **UX**: botão flutuante “voltar ao topo” e textos de apoio em cada seção.
 
 ---
 
@@ -25,21 +28,25 @@ Este projeto realiza aprendizado não supervisionado (clustering) sobre o datase
 
 ```text
 projeto_clustering_matematica/
-  ├─ .gitignore
   ├─ environment.yml
   ├─ README.md
   ├─ data/
+  │   ├─ raw/
+  │   │   ├─ Country-data.csv                     # Dataset em CSV
+  │   │   ├─ Country-data-dictionary.csv
+  │   │   └─ unsupervised_learning_on_country_data.zip
   │   └─ processed/
-  │   └─ raw/
-  │       └─ Country-data.csv                     # Dataset em CSV
+  │       └─ Country-data_processed.csv           # Dataset sem a coluna "country"
   ├─ results/
-  │   └─ models/
-  │       └─ modelo_cluster.pkl                   # Arquivo em PKL gerado pelo app ao salvar o modelo
-  │   └─ profiling/
-  │       └─ pandas_profiling_country_data.html   # Relatório EDA gerado pelo ydata-profiling
+  │   ├─ models/
+  │   │   └─ modelo_cluster.pkl                   # Arquivo em PKL gerado pelo app ao salvar o modelo
+  │   ├─ profiling/
+  │   │   └─ pandas_profiling_country_data.html
+  │   └─ relatorio_clusterizacao_completo.html    # Relatório em HTML dos resultados da clusterização
   ├─ notebooks/
   │   ├─ analise_exploratoria.ipynb
-  │   └─ data_preprocessing.ipynb
+  │   ├─ clustering.ipynb
+  │   └─ profiling.ipynb
   └─ src/
       └─ app.py                                   # App Streamlit
 ```
@@ -48,9 +55,9 @@ projeto_clustering_matematica/
 
 ## Ambiente
 
-Este projeto usa Conda. As dependências estão em `environment.yml` (inclui PyCaret, Streamlit e utilitários para EDA e Kaggle API).
+Este projeto usa Miniconda. As dependências principais estão em `environment.yml` (PyCaret 3.x, Streamlit, scikit‑learn, plotly, scipy, matplotlib, ydata‑profiling/pandas‑profiling, etc.).
 
-### Criação do ambiente
+### Criar e ativar o ambiente (Conda)
 
 ```bash
 conda env create -f environment.yml
@@ -63,7 +70,7 @@ conda activate ambiente_matematica_computacional
 
 Fonte: `https://www.kaggle.com/datasets/rohan0301/unsupervised-learning-on-country-data`
 
-Você pode obter o arquivo `Country-data.csv` de duas formas:
+Você pode obter `Country-data.csv` via Kaggle API ou download manual e colocá-lo em `data/raw/`.
 
 1) **Via Kaggle API**
 
@@ -91,77 +98,53 @@ Abra o link exibido no terminal (geralmente `http://localhost:8501`).
 
 ---
 
-## Guia de Uso do App
+## Guia de Uso (resumo)
 
 1) **Fonte de Dados**
-   - Escolha entre “Iris (Exemplo)” (via `pycaret.datasets.get_data("iris")`) ou “Upload CSV”.
-   - Para Country-data, use “Upload CSV” e selecione `data/raw/Country-data.csv`.
+   - Selecione “Iris (Exemplo)” ou “Upload CSV”. Para este projeto, use `data/raw/Country-data.csv`.
 
-2) **Configuração das Features**
-   - Selecione as colunas numéricas a considerar. Se nenhuma for escolhida, o app usa automaticamente colunas numéricas não constantes.
+2) **EDA (profiling)**
+   - Pré-visualize os dados, gere um relatório automático (ydata‑profiling/pandas‑profiling) e faça download do HTML em aba específica.
 
-3) **Pré-processamento**
-   - Opções: Normalizar, PCA (com número de componentes ajustável).
+3) **Configuração das Features**
+   - Ignore `country` (pré‑selecionada quando presente) e escolha as variáveis numéricas. Se nenhuma for escolhida, o app usa todas as numéricas não constantes.
 
-4) **Parâmetros de Cluster**
-   - Defina número de clusters `k` (para K-Means, Hierarchical, BIRCH, Spectral); parâmetros de densidade para DBSCAN/OPTICS.
-   - Use o limitador de amostras para melhorar desempenho em datasets maiores.
+4) **Pré‑processamento**
+   - Normalização (recomendada) e PCA opcional (com número de componentes ajustável).
 
-5) **Rodar Clusterização**
+5) **Parâmetros e Desempenho**
+   - Defina número de clusters `k` (para modelos baseados em k) e parâmetros de densidade para DBSCAN/OPTICS (`eps`, `min_samples`).
+   - Use “Limitar amostras” para respostas mais rápidas em datasets maiores ou máquinas modestas.
+
+6) **Rodar Clusterização**
    - Clique em “Rodar Clusterização”. O app:
      - Executa `setup` do PyCaret;
      - Treina os modelos selecionados;
      - Calcula métricas (Silhouette, Calinski–Harabasz, Davies–Bouldin) e exibe uma interpretação automática;
      - Permite escolher um modelo para análise detalhada.
 
-6) **Análise Detalhada**
-   - Visualizações PyCaret (elbow, silhouette, t-SNE) quando suportadas;
+7) **Análise Detalhada**
+   - Visualizações PyCaret (elbow, silhouette, t‑SNE);
    - Dendrograma (para hierárquico ou sob demanda);
-   - Heatmap das médias por cluster (com opção de z-score e seleção das top-N features).
-
-7) **Comparação com Rótulos (opcional)**
-   - Caso haja uma coluna de rótulo (ex.: `species`, `class`), é possível comparar clusters × rótulos e calcular pureza.
+   - Heatmap das médias por cluster (com opção de z-score e seleção das top-N features);
+   - PCA 2D, mapa mundial, tamanho dos clusters (doughnut) e detecção de clusters isolados;
+   - Perfil socioeconômico médio (barras com rótulos em 3 casas) e distribuição por variável (boxplots).
 
 8) **Downloads**
-   - Baixe CSV com os clusters atribuídos;
-   - Salve e baixe o modelo treinado (`models/modelo_cluster.pkl`).
+   - CSV com clusters atribuídos e modelo treinado (`results/models/modelo_cluster.pkl`).
+   - Na aba “Relatório”, clique em “Baixar relatório completo (HTML)” para salvar um arquivo com os resultados da clusterização gerados pelo app (tabelas e gráficos interativos em HTML).
 
 ---
 
 ## Algoritmos e Métricas
 
-- **Algoritmos**: K-Means, Hierarchical Clustering (agglomerative), DBSCAN. (Opcionalmente BIRCH, OPTICS, Spectral.)
+- **Algoritmos**: K-Means, Hierarchical Clustering (agglomerative), DBSCAN, BIRCH, OPTICS, Spectral.
 - **Métricas**:
   - Silhouette Score — quanto mais alto, melhor separação;
   - Calinski–Harabasz — maior é melhor;
   - Davies–Bouldin — menor é melhor.
 
 > Reprodutibilidade: o app fixa `session_id=42` no PyCaret.
-
----
-
-## EDA (Análise Exploratória)
-
-- Use os notebooks em `notebooks/` para EDA detalhada.
-- O app mostra preview dos dados e oferece heatmap de médias por cluster para interpretação rápida.
-- Pacotes incluídos (ex.: `ydata-profiling`, `seaborn`) podem ser usados nos notebooks para relatórios mais completos.
-
----
-
-## Boas Práticas de Performance
-
-- Utilize o parâmetro de limitação de amostras na barra lateral para manter a interação fluida com datasets maiores.
-- Reduza dimensionalidade com PCA quando houver muitas features correlacionadas.
-- Se necessário, selecione apenas um subconjunto de variáveis com maior relação ao problema.
-
----
-
-## Interpretação e Relatório Final
-
-Inclua no relatório (ou nas anotações do notebook):
-- **Resumo Executivo**: número de clusters, características distintivas, e implicações práticas.
-- **Metodologia**: algoritmos utilizados, parâmetros (e.g., `k`, `eps`, `min_samples`), justificativas técnicas.
-- **Resultados e Insights**: métricas, gráficos, dendrogramas e hipóteses/descobertas relevantes.
 
 ---
 
