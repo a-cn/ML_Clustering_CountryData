@@ -1034,7 +1034,7 @@ with relatorio_container:
     st.markdown("""
     **Resumo da análise:**
     - O **modelo K-Means (k = 4)** capturou uma estrutura coerente de desenvolvimento socioeconômico global.  
-    - *Cluster 1* agrupa países **desenvolvidos**; *Cluster 0* representa países em estágio **intermediário**; *Cluster 2* reúne **países de baixo desenvolvimento**; *Cluster 3* (**Nigéria**) destaca-se como caso isolado e crítico.  
+    - *Cluster 1* agrupa países **desenvolvidos**; *Cluster 0* representa países em estágio **intermediário**; *Cluster 2* reúne países de **baixo desenvolvimento**; *Cluster 3* (**Nigéria**) destaca-se como caso isolado e crítico.  
     - Os resultados reforçam a coerência entre os indicadores econômicos e sociais.
 
     **Sugestões de continuidade:**
@@ -1046,3 +1046,343 @@ with relatorio_container:
     Essas análises complementares podem reforçar o entendimento das diferenças estruturais entre os países
     e apoiar políticas públicas e estratégias de desenvolvimento mais direcionadas.
     """)
+
+    # ---------------------------
+    # Botão único: gerar e baixar relatório HTML completo
+    # ---------------------------
+    st.subheader("Download")
+
+    def _fig_to_html_div(fig):
+        try:
+            return fig.to_html(full_html=False, include_plotlyjs="cdn")
+        except Exception:
+            return "<div><em>Figura indisponível</em></div>"
+
+    def _df_to_html_table(_df: pd.DataFrame, index: bool = False) -> str:
+        try:
+            return _df.to_html(index=index, border=0, classes="table", justify="center")
+        except Exception:
+            return "<div><em>Tabela indisponível</em></div>"
+
+    # Construção do relatório uma única vez por renderização, para download rápido ao clicar
+    try:
+        # 1) Visão geral dos dados
+        df_full_base = st.session_state.get("cluster_df", df)
+        visao_dims_html = f"<p><strong>Dimensões:</strong> {df_full_base.shape[0]} linhas × {df_full_base.shape[1]} colunas</p>"
+        visao_sample_html = _df_to_html_table(df_full_base.head(10), index=False)
+        visao_sample_caption_html = '<p class="muted">Amostra de 10 registros do dataset Country-data.csv.</p>'
+
+        # 2) Entendimento do dataset (exibe se as 10 colunas padrão existirem)
+        understanding_html = ""
+        expected_cols = {'country','child_mort','exports','health','imports','income','inflation','life_expec','total_fer','gdpp'}
+        if expected_cols.issubset(set([c for c in df_full_base.columns])):
+            understanding_html = """
+            <table class="table">
+              <thead>
+                <tr><th>Coluna</th><th>Descrição</th><th>Tipo</th><th>Observação</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>country</code></td><td>Nome do país</td><td>Categórica</td><td>Identificador (ignorado no clustering)</td></tr>
+                <tr><td><code>child_mort</code></td><td>Taxa de mortalidade infantil (por 1000 nascimentos)</td><td>Numérica</td><td>Importante indicador social</td></tr>
+                <tr><td><code>exports</code></td><td>Exportações (% do PIB)</td><td>Numérica</td><td>Econômico</td></tr>
+                <tr><td><code>health</code></td><td>Gastos com saúde (% do PIB)</td><td>Numérica</td><td>Econômico/Social</td></tr>
+                <tr><td><code>imports</code></td><td>Importações (% do PIB)</td><td>Numérica</td><td>Econômico</td></tr>
+                <tr><td><code>income</code></td><td>Renda média per capita</td><td>Numérica</td><td>Econômico</td></tr>
+                <tr><td><code>inflation</code></td><td>Taxa de inflação (%)</td><td>Numérica</td><td>Econômico</td></tr>
+                <tr><td><code>life_expec</code></td><td>Expectativa de vida</td><td>Numérica</td><td>Social</td></tr>
+                <tr><td><code>total_fer</code></td><td>Taxa de fertilidade</td><td>Numérica</td><td>Social</td></tr>
+                <tr><td><code>gdpp</code></td><td>PIB per capita</td><td>Numérica</td><td>Econômico</td></tr>
+              </tbody>
+            </table>
+            """
+
+        # 3) Relatório de Resultados da Clusterização (texto conforme app)
+        relatorio_texto_html = """
+        <p>Após a execução do processo de clusterização, o modelo <strong>K-Means</strong> foi identificado como o mais adequado
+        para o dataset <code>Country-data.csv</code>, com base nas métricas internas obtidas:</p>
+        <ul>
+          <li><strong>Silhouette ≈ 0.29</strong> → separação moderada entre clusters (estrutura existente, mas com sobreposição leve);</li>
+          <li><strong>Calinski–Harabasz ≈ 54.4</strong> → boa compactação e separação interna;</li>
+          <li><strong>Davies–Bouldin ≈ 1.0</strong> → separação aceitável entre grupos.</li>
+        </ul>
+        <p>Esses valores indicam que o K-Means conseguiu capturar <strong>padrões socioeconômicos distintos entre os países</strong>,
+        apesar de transições graduais entre alguns grupos — o que é esperado em dados de desenvolvimento humano e econômico.</p>
+        """
+
+        # 4) Interpretação Geral dos Clusters (tabela existente)
+        interpretacao_intro_html = """
+        <p>O modelo K-Means formou <strong>4 clusters principais</strong>, representando diferentes estágios de desenvolvimento econômico e social:</p>
+        """
+        interpretacao_html = """
+        <table class="table">
+          <thead>
+            <tr><th>Cluster</th><th>Descrição</th><th>Características predominantes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>0</strong></td><td>Países em desenvolvimento intermediário</td><td>PIB e renda modestos, mortalidade infantil ainda alta, fertilidade elevada, expectativa de vida média.</td></tr>
+            <tr><td><strong>1</strong></td><td>Países desenvolvidos</td><td>Alta renda e PIB per capita, elevada expectativa de vida, baixa mortalidade e fertilidade, inflação controlada, forte abertura comercial.</td></tr>
+            <tr><td><strong>2</strong></td><td>Países de baixo desenvolvimento</td><td>Renda e PIB baixos, mortalidade e fertilidade altas, expectativa de vida reduzida, inflação relativamente alta.</td></tr>
+            <tr><td><strong>3</strong></td><td>País isolado de vulnerabilidade extrema (Nigéria)</td><td>Mortalidade e fertilidade extremamente altas, renda e expectativa de vida muito baixas, inflação muito elevada.</td></tr>
+          </tbody>
+        </table>
+        """
+
+        # 5) Visualização 2D (PCA) + textos e legenda
+        pca_intro_html = """
+        <p>O Principal Component Analysis (PCA) é utilizado para resumir todas as variáveis em dois eixos (componentes PC1 e PC2) para visualização, sendo que, neste caso, cada ponto na imagem representa um país.</p>
+        <ul>
+          <li>Pontos <strong>próximos</strong> indicam países com perfis socioeconômicos semelhantes.</li>
+          <li>Pontos <strong>distantes</strong> indicam perfis distintos.</li>
+          <li>As <strong>cores</strong> correspondem aos clusters identificados.</li>
+        </ul>
+        """
+        pca_html = _fig_to_html_div(fig_pca)
+        pca_caption_html = """
+        <div class="muted">
+          <p><strong>Leitura do gráfico:</strong></p>
+          <ul>
+            <li><em>Cluster 1</em> (desenvolvidos) forma um grupo compacto e distante, com indicadores homogêneos e altos níveis de renda e qualidade de vida.</li>
+            <li><em>Cluster 0</em> aparece como faixa intermediária de desenvolvimento.</li>
+            <li><em>Cluster 2</em> agrupa países de baixo desenvolvimento, com indicadores desfavoráveis.</li>
+            <li><em>Cluster 3</em> (Nigéria) surge isolado — reflexo de um perfil socioeconômico extremamente desfavorável.</li>
+          </ul>
+        </div>
+        """
+
+        # 6) Distribuição Geográfica + texto
+        map_intro_html = """
+        <p>O mapa abaixo mostra a distribuição dos clusters por país.<br/>
+        Cores semelhantes indicam países com características socioeconômicas próximas.</p>
+        """
+        map_html = _fig_to_html_div(fig_map) if 'fig_map' in locals() else "<div><em>Mapa indisponível</em></div>"
+
+        # 7) Tamanho dos clusters — versão com contagem e porcentagem + texto
+        tamanhos_intro_html = """
+        <p>O gráfico (doughnut) abaixo apresenta a quantidade de países distribuídos por cluster.<br/>
+        Cada setor representa a proporção de países em cada grupo.</p>
+        """
+        try:
+            counts_df_pdf = cluster_counts.sort_index().rename_axis('Cluster').reset_index(name='Quantidade')
+            counts_df_pdf['ClusterStr'] = counts_df_pdf['Cluster'].astype(str)
+            fig_counts_pdf = px.pie(
+                counts_df_pdf,
+                names='ClusterStr',
+                values='Quantidade',
+                color='ClusterStr',
+                category_orders={'ClusterStr': [str(c) for c in cluster_order]},
+                color_discrete_map=pca_color_map,
+                title='Participação de Países por Cluster',
+                hole=0.5
+            )
+            fig_counts_pdf.update_traces(textposition='inside', textinfo='label+percent+value')
+            counts_html = _fig_to_html_div(fig_counts_pdf)
+        except Exception:
+            counts_html = _df_to_html_table(cluster_counts.sort_index().to_frame(name='Quantidade'))
+
+        # 8) Clusters isolados + legenda interpretativa
+        isolados_html = ""
+        if isolated_clusters:
+            itens = []
+            for c in isolated_clusters:
+                try:
+                    isolated_country = labeled_display.loc[labeled_display['Cluster'] == c, 'country'].values[0]
+                    label = str(c)
+                    if not label.lower().startswith("cluster"):
+                        label = f"Cluster {label}"
+                    itens.append(f"<p><strong>{label}</strong> contém apenas <strong>{isolated_country}</strong>, indicando um possível outlier com perfil socioeconômico extremo.</p>")
+                except Exception:
+                    label = str(c)
+                    if not label.lower().startswith("cluster"):
+                        label = f"Cluster {label}"
+                    itens.append(f"<p><strong>{label}</strong> contém apenas um país, indicando um possível outlier com perfil socioeconômico extremo.</p>")
+            isolados_html = "".join(itens)
+            isolados_caption_html = """
+            <div class="muted">
+              <p><strong>Interpretação:</strong><br/>
+              O modelo detectou país(es) significativamente diferentes dos demais.<br/>
+              No caso atual, a <strong>Nigéria</strong> apresenta mortalidade infantil, fertilidade e inflação muito elevadas,
+              além de baixa renda e expectativa de vida, justificando seu isolamento.</p>
+            </div>
+            """
+        else:
+            isolados_caption_html = ""
+
+        # 9) Perfil Socioeconômico Médio — com valores (3 casas) + textos
+        try:
+            fig_profile_pdf = fig_profile.to_dict()
+            fig_profile_pdf = go.Figure(fig_profile_pdf)
+            fig_profile_pdf.update_traces(texttemplate="%{y:.3f}", textposition="auto")
+            fig_profile_pdf.update_layout(title="Perfil Socioeconômico Médio (valores normalizados, com rótulos)")
+            profile_html = _fig_to_html_div(fig_profile_pdf)
+        except Exception:
+            profile_html = "<div><em>Gráfico de perfil indisponível</em></div>"
+        profile_intro_html = """
+        <p>O gráfico abaixo apresenta as médias normalizadas das variáveis socioeconômicas dentro de cada grupo.<br/>
+        Valores positivos indicam médias <strong>acima da média global</strong> e negativos, <strong>abaixo da média global</strong>.</p>
+        """
+        profile_caption_html = """
+        <div class="muted">
+          <p><strong>Interpretação:</strong></p>
+          <ul>
+            <li><em>Cluster 1</em> (<strong>desenvolvidos</strong>): maiores valores em <em>income</em>, <em>gdpp</em>, <em>health</em>, <em>life_expec</em>, <em>exports</em> e <em>imports</em>; menores em <em>child_mort</em>, <em>total_fer</em> e <em>inflation</em>.</li>
+            <li><em>Cluster 0</em>: indicadores médios, representando países em <strong>desenvolvimento intermediário</strong>.</li>
+            <li><em>Cluster 2</em> (<strong>baixo desenvolvimento</strong>): renda e PIB baixos e mortalidade/fertilidade elevadas.</li>
+            <li><em>Cluster 3</em> (<strong>Nigéria</strong>): perfil extremo — inflação e mortalidade muito altas, renda e expectativa de vida muito baixas.</li>
+          </ul>
+        </div>
+        """
+
+        # 10) Distribuição por variável — todas as 9 variáveis + texto explicativo
+        dist_intro_html = """
+        <p>Nesta seção são exibidos gráficos do tipo <strong>boxplot</strong> para cada variável selecionada, separados por cluster.
+        O objetivo é comparar a <strong>distribuição</strong> das variáveis entre os grupos.</p>
+        <p><strong>Como interpretar:</strong></p>
+        <ul>
+          <li><strong>Linha central</strong>: a mediana dos valores do cluster;</li>
+          <li><strong>Caixa</strong>: intervalo interquartil (Q1–Q3), onde se concentram 50% dos valores;</li>
+          <li><strong>Bigodes</strong>: variação típica (sem outliers) dos dados;</li>
+          <li><strong>Pontos fora da caixa</strong>: possíveis outliers.</li>
+        </ul>
+        """
+        dist_vars_html_blocks = []
+        candidate_vars_all = [v for v in ['income','gdpp','life_expec','child_mort','total_fer','inflation','health','imports','exports'] if v in cols_num]
+        for var in candidate_vars_all:
+            try:
+                df_box = labeled_display[['Cluster', var]].copy()
+                df_box['ClusterStr'] = df_box['Cluster'].astype(str)
+                fig_box_pdf = px.box(
+                    df_box, x='ClusterStr', y=var, color='ClusterStr',
+                    category_orders={'ClusterStr': [str(c) for c in cluster_order]},
+                    color_discrete_map=pca_color_map,
+                    points='outliers',
+                    title=f'Distribuição de {var} por Cluster'
+                )
+                fig_box_pdf.update_layout(xaxis_title='Cluster', legend_title_text='Cluster')
+                dist_vars_html_blocks.append(_fig_to_html_div(fig_box_pdf))
+            except Exception:
+                dist_vars_html_blocks.append(f"<div><em>Gráfico de {var} indisponível</em></div>")
+        dist_vars_html = "".join(dist_vars_html_blocks) if dist_vars_html_blocks else "<div><em>Sem variáveis para exibir</em></div>"
+
+        # 11) Conclusões e Próximos Passos (texto conforme app)
+        conclusoes_html = """
+        <p><strong>Resumo da análise:</strong></p>
+        <ul>
+          <li>O <strong>modelo K-Means (k = 4)</strong> capturou uma estrutura coerente de desenvolvimento socioeconômico global.</li>
+          <li><em>Cluster 1</em> agrupa países <strong>desenvolvidos</strong>; <em>Cluster 0</em> representa países em estágio <strong>intermediário</strong>; <em>Cluster 2</em> reúne países de <strong>baixo desenvolvimento</strong>; <em>Cluster 3</em> (Nigéria) destaca-se como caso isolado e crítico.</li>
+          <li>Os resultados reforçam a coerência entre os indicadores econômicos e sociais.</li>
+        </ul>
+        <p><strong>Sugestões de continuidade:</strong></p>
+        <ol>
+          <li>Testar valores alternativos de <em>k</em> para avaliar estabilidade dos grupos.</li>
+          <li>Aplicar transformação de potência (<code>transformation=True</code>) para suavizar outliers.</li>
+          <li>Incluir variáveis adicionais (educação, IDH, desigualdade, urbanização).</li>
+          <li>Avaliar evolução temporal para estudar mudanças nos clusters ao longo dos anos.</li>
+        </ol>
+        <p>Essas análises complementares podem reforçar o entendimento das diferenças estruturais entre os países
+        e apoiar políticas públicas e estratégias de desenvolvimento mais direcionadas.</p>
+        """
+
+        # Template final
+        html_report = f"""
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Relatório Completo de Clusterização</title>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 16px; color: #1f2937; }}
+    h1, h2, h3 {{ color: #111827; }}
+    .section {{ margin-bottom: 28px; }}
+    .table {{ border-collapse: collapse; width: 100%; }}
+    .table th, .table td {{ border: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; }}
+    .table thead th {{ background: #f9fafb; }}
+    .muted {{ color: #6b7280; font-size: 0.925rem; }}
+    .grid-figs {{ display: grid; grid-template-columns: 1fr; gap: 16px; }}
+    @media (min-width: 1100px) {{ .grid-figs {{ grid-template-columns: 1fr 1fr; }} }}
+  </style>
+</head>
+<body>
+  <h1>Relatório Completo de Clusterização</h1>
+
+  <div class="section">
+    <h2>Visão geral dos dados</h2>
+    {visao_dims_html}
+    {visao_sample_html}
+    {visao_sample_caption_html}
+  </div>
+
+  <div class="section">
+    <h2>Entendimento do dataset</h2>
+    {understanding_html}
+  </div>
+
+  <div class="section">
+    <h2>Relatório de Resultados da Clusterização</h2>
+    {relatorio_texto_html}
+  </div>
+
+  <div class="section">
+    <h2>Interpretação Geral dos Clusters</h2>
+    {interpretacao_intro_html}
+    {interpretacao_html}
+  </div>
+
+  <div class="section">
+    <h2>Visualização 2D dos Clusters (PCA)</h2>
+    {pca_intro_html}
+    {pca_html}
+    {pca_caption_html}
+  </div>
+
+  <div class="section">
+    <h2>Distribuição Geográfica dos Clusters</h2>
+    {map_intro_html}
+    {map_html}
+  </div>
+
+  <div class="section">
+    <h2>Tamanho dos Clusters e Outliers</h2>
+    {tamanhos_intro_html}
+    <p class="muted">Além do percentual, a quantidade equivalente de países também é exibida.</p>
+    {counts_html}
+    <h3>Cluster(s) Isolado(s) Detectado(s)</h3>
+    {isolados_html}
+    {isolados_caption_html}
+  </div>
+
+  <div class="section">
+    <h2>Perfil Socioeconômico Médio por Cluster</h2>
+    {profile_intro_html}
+    <p class="muted">Valores exibidos com até 3 casas decimais.</p>
+    {profile_html}
+    {profile_caption_html}
+  </div>
+
+  <div class="section">
+    <h2>Distribuição por variável</h2>
+    {dist_intro_html}
+    <div class="grid-figs">
+      {dist_vars_html}
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Conclusões e Próximos Passos</h2>
+    {conclusoes_html}
+  </div>
+</body>
+</html>
+"""
+        st.session_state.relatorio_html_completo = html_report
+    except Exception as _e:
+        st.session_state.relatorio_html_completo = "<!doctype html><html><body><p>Não foi possível gerar o relatório.</p></body></html>"
+
+    st.download_button(
+        "💾 Baixar relatório completo (HTML)",
+        data=st.session_state.get("relatorio_html_completo", "").encode("utf-8"),
+        file_name="relatorio_clusterizacao_completo.html",
+        mime="text/html",
+        use_container_width=False,
+        key="btn_download_relatorio_html_completo"
+    )
