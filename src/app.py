@@ -640,7 +640,7 @@ with treino_container:
 
         # Escolher modelo
         st.subheader("Análise detalhada")
-        escolha = st.selectbox("Modelo", res_df["Modelo"].tolist(), key="cluster_model_select")
+        escolha = st.selectbox("Modelo:", res_df["Modelo"].tolist(), key="cluster_model_select")
         obj, labeled_final = objetos.get(escolha, (None, None))
 
         if isinstance(obj, str) or labeled_final is None:
@@ -649,12 +649,20 @@ with treino_container:
 
         st.write("Amostra com clusters atribuídos:")
         st.dataframe(labeled_final.head())
+        st.caption("Esta é uma amostra para conferência rápida onde cada linha mostra um registro do dataset e a coluna ‘Cluster’ indica o grupo ao qual ele foi atribuído.\n"
+                   "Os demais números são valores padronizados:\n" 
+                   "- 0 ≈ média do conjunto;\n"
+                   "- Valores positivos = acima da média;\n"
+                   "- Valores negativos = abaixo da média.")
 
         # Perfis por cluster (tabela)
         st.subheader("Perfis dos clusters (estatísticas)")
         prof = cluster_profiles_table(labeled_final, cluster_col="Cluster")
         if not prof.empty:
             st.dataframe(prof)
+            st.caption("Resumo por grupo: para cada variável é exibida a média, a mediana, a variação (desvio‑padrão) e os menores/maiores valores (mín/máx) dentro do cluster. "
+                       "Use para entender o que caracteriza cada grupo (ex.: ‘Cluster 2 tem renda acima da média’). "
+                       "Os valores estão padronizados, então compare sinais e magnitudes, não unidades reais.")
 
         # Recriar contexto do PyCaret para permitir plot_model após rerun
         try:
@@ -682,9 +690,19 @@ with treino_container:
         # Visualizações do modelo escolhido (PyCaret)
         st.subheader("Visualizações do modelo (PyCaret)")
         captions_map = {
-            "elbow": "Interpretação: observe o ponto de ‘cotovelo’, onde a queda do erro/distortion desacelera. Esse k tende a oferecer bom equilíbrio entre simplicidade e qualidade.",
-            "silhouette": "Interpretação: valores próximos de 1 indicam boa separação; próximos de 0 indicam sobreposição; negativos sugerem pontos mal alocados.",
-            "tsne": "Interpretação: visualização não linear da proximidade entre amostras. Grupos compactos indicam clusters coesos; misturas/overlaps indicam fronteiras difusas."
+            "elbow": "**Como ler:**\n"
+                     "- Procure o ‘cotovelo’: o ponto onde a curva deixa de cair rápido;\n"
+                     "- O k nesse ponto costuma equilibrar simplicidade e qualidade do agrupamento;\n"
+                     "- Se não houver cotovelo claro, teste k próximos e confirme com outras métricas.",
+            "silhouette": "**Como ler (vai de −1 a 1):**\n"
+                          "- Quanto maior, melhor a separação (≈ 0.5 ou mais é bom);\n"
+                          "- Próximo de 0 indica mistura entre grupos (sobreposição);\n"
+                          "- Negativo sugere pontos mal alocados;\n"
+                          "- Barras longas acima de 0 para cada cluster indicam grupos coesos.",
+            "tsne": "**Como ler:**\n"
+                    "- Projeção em 3D para visualizar proximidade entre amostras; os eixos não têm significado direto.\n"
+                    "- Grupos bem separados no gráfico sugerem clusters distintos e coesos; misturas/overlaps indicam fronteiras difusas.\n"
+                    "- Pequenas variações entre execuções são normais (o t‑SNE é estocástico)."
         }
         for plot_type in ["elbow", "silhouette", "tsne"]:
             try:
@@ -700,7 +718,10 @@ with treino_container:
         if escolha == "hclust" or show_dendro_anyway:
             X_for_dendro = labeled_final.drop(columns=["Cluster"])
             make_dendrogram(X_for_dendro, sample_cap=250, method="ward")
-            st.caption("Interpretação: cada união representa mesclagem de grupos. Alturas maiores indicam junções entre grupos mais diferentes. ‘Saltos’ grandes na altura sugerem fronteiras naturais entre clusters.")
+            st.caption("**Como ler:**\n"
+                       "- Cada ‘união’ representa mesclagem de grupos parecidos;\n"
+                       "- A altura da união mostra o quão diferentes eles eram (quanto maior, mais diferentes);\n"
+                       "- ‘Saltos’ grandes de altura sugerem fronteiras naturais entre clusters (corte horizontal pouco antes do salto).")
         else:
             st.info("Dendrograma é mais apropriado para hclust. Ative a opção na barra lateral para forçar exibição.")
 
@@ -709,7 +730,11 @@ with treino_container:
         top_n = int(heatmap_topn) if heatmap_topn and heatmap_topn > 0 else None
         plot_cluster_means_heatmap(labeled_final, cluster_col="Cluster",
                                    zscore=heatmap_zscore, top_n_features=top_n)
-        st.caption("Interpretação: cada célula mostra a média da variável no cluster (z‑score se ativado). Tons positivos indicam valores acima da média global; negativos, abaixo. Padrões por linha/coluna revelam quais variáveis diferenciam cada grupo.")
+        st.caption("**Como ler:**\n"
+                   "- Cada célula mostra a média da variável no cluster (z‑score se ativado);\n"
+                   "- Cores positivas = valores acima da média global;\n"
+                   "- Cores negativas = valores abaixo da média global.\n"
+                   "- Compare colunas para ver quais variáveis diferenciam os clusters e linhas para entender o ‘perfil’ de cada grupo.")
 
         # Comparação com rótulos verdadeiros (opcional)
         if ('label_col' in locals()) and label_col and label_col in df.columns:
@@ -951,7 +976,7 @@ with relatorio_container:
     st.caption("""
     **Interpretação:**
     - *Cluster 1* (**desenvolvidos**): maiores valores em **income**, **gdpp**, **health**, **life_expec**, **exports** e **imports**; menores em **child_mort**, **total_fer** e **inflation**.  
-    - *Cluster 0*: indicadores médios, representando países em desenvolvimento intermediário.  
+    - *Cluster 0*: indicadores médios, representando países em **desenvolvimento intermediário**.  
     - *Cluster 2* (**baixo desenvolvimento**): renda e PIB baixos e mortalidade/fertilidade elevadas.  
     - *Cluster 3* (**Nigéria**): perfil extremo — inflação e mortalidade muito altas, renda e expectativa de vida muito baixas.
     """)
